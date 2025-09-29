@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* * {
+    border: 1px solid red;
+} */
+
+button:hover {
+    cursor: pointer;
+}

@@ -1,0 +1,165 @@
+SERVER DIRECTORY STRUCTURE
+==========================
+
+server/
+├── package.json                    # Dependencies with "type": "module"
+├── .env                           # Environment variables
+├── .env.example                   # Environment template
+├── .gitignore                     # Git ignore file
+├── server.js                      # Main server entry point
+├── structure.txt                  # This structure file
+│
+├── config/                        # Configuration files
+│   ├── database.js               # MongoDB connection config
+│   ├── jwt.js                    # JWT configuration
+│   └── constants.js              # App constants
+│
+├── models/                        # Database models (organized by user type)
+│   ├── admin/
+│   │   ├── Admin.js              # Admin user model
+│   │   └── AdminLog.js           # Admin activity logs
+│   ├── institution/
+│   │   ├── Institution.js        # Institution model
+│   │   ├── InstitutionAdmin.js   # Institution admin users
+│   │   └── Department.js         # Departments within institutions
+│   └── student/
+│       ├── Student.js            # Student user model
+│       ├── StudentProfile.js     # Extended student profile
+│       └── Application.js        # Job/placement applications
+│
+├── controllers/                   # Route controllers (organized by user type)
+│   ├── admin/
+│   │   ├── adminAuth.js          # Admin authentication
+│   │   ├── adminDashboard.js     # Admin dashboard logic
+│   │   ├── userManagement.js     # Manage users
+│   │   └── institutionApproval.js # Institution approval workflow
+│   ├── institution/
+│   │   ├── institutionAuth.js    # Institution authentication
+│   │   ├── institutionDashboard.js # Institution dashboard
+│   │   ├── studentManagement.js  # Manage students
+│   │   └── placementManagement.js # Placement opportunities
+│   └── student/
+│       ├── studentAuth.js        # Student authentication
+│       ├── studentDashboard.js   # Student dashboard
+│       ├── studentProfile.js     # Profile management
+│       └── applicationManagement.js # Job applications
+│
+├── routes/                        # API routes (organized by user type)
+│   ├── auth.js                   # Common authentication routes
+│   ├── admin/
+│   │   ├── adminRoutes.js        # Admin-specific routes
+│   │   └── managementRoutes.js   # User/institution management
+│   ├── institution/
+│   │   ├── institutionRoutes.js  # Institution-specific routes
+│   │   └── placementRoutes.js    # Placement-related routes
+│   └── student/
+│       ├── studentRoutes.js      # Student-specific routes
+│       └── applicationRoutes.js  # Application-related routes
+│
+├── middleware/                    # Custom middleware
+│   ├── auth.js                   # Authentication middleware
+│   ├── roleCheck.js              # Role-based access control
+│   ├── validation.js             # Input validation middleware
+│   └── errorHandler.js           # Global error handling
+│
+├── utils/                         # Utility functions
+│   ├── tokenUtils.js             # JWT token utilities
+│   ├── emailService.js           # Email sending service
+│   ├── fileUpload.js             # File upload handling
+│   ├── validation.js             # Validation helpers
+│   └── responseHelper.js         # Standardized API responses
+│
+├── uploads/                       # File uploads (if local storage)
+│   ├── profiles/                 # Profile pictures
+│   ├── resumes/                  # Resume files
+│   ├── documents/                # Institution documents
+│   └── temp/                     # Temporary files
+│
+└── logs/                          # Application logs
+    ├── error.log                 # Error logs
+    ├── access.log                # Access logs
+    └── admin.log                 # Admin activity logs
+
+API ENDPOINTS STRUCTURE
+======================
+
+/api/
+├── health                        # Health check endpoint
+├── auth/                         # Authentication routes
+│   ├── login                     # Generic login
+│   ├── admin/
+│   │   ├── login                 # Admin login
+│   │   └── register              # Admin registration
+│   ├── institution/
+│   │   ├── login                 # Institution login
+│   │   ├── register              # Institution registration
+│   │   └── verify                # Institution verification
+│   └── student/
+│       ├── login                 # Student login
+│       ├── register              # Student registration
+│       └── verify                # Student email verification
+│
+├── admin/                        # Admin routes (protected)
+│   ├── dashboard                 # Dashboard data
+│   ├── users                     # User management
+│   ├── institutions              # Institution management
+│   ├── approve-institution       # Institution approval
+│   ├── reject-institution        # Institution rejection
+│   ├── reports                   # System reports
+│   └── settings                  # System settings
+│
+├── institution/                  # Institution routes (protected)
+│   ├── dashboard                 # Dashboard data
+│   ├── profile                   # Institution profile
+│   ├── students                  # Student management
+│   ├── departments               # Department management
+│   ├── placements                # Placement opportunities
+│   ├── applications              # View applications
+│   └── reports                   # Placement reports
+│
+└── student/                      # Student routes (protected)
+    ├── dashboard                 # Dashboard data
+    ├── profile                   # Student profile
+    ├── applications              # Job applications
+    ├── placements                # Available placements
+    ├── resume                    # Resume management
+    └── notifications             # Student notifications
+
+DATABASE COLLECTIONS
+====================
+
+MongoDB Collections:
+├── admins                        # Admin users
+├── institutions                  # Institution data
+├── institutionadmins             # Institution admin users
+├── students                      # Student users
+├── departments                   # Institution departments
+├── applications                  # Placement applications
+├── placements                    # Job/placement opportunities
+├── notifications                 # User notifications
+├── logs                          # System activity logs
+└── sessions                      # User sessions (if needed)
+
+SECURITY & FEATURES
+==================
+
+Security:
+├── JWT Token Authentication
+├── Role-based Access Control
+├── Password Hashing (bcrypt)
+├── Rate Limiting
+├── CORS Protection
+├── Helmet Security Headers
+├── Input Validation
+└── File Upload Security
+
+Features:
+├── Multi-role Authentication
+├── Institution Approval Workflow
+├── Student Profile Management
+├── Placement Management
+├── File Upload (Resume, Documents)
+├── Email Notifications
+├── Dashboard Analytics
+├── Search & Filter
+└── Audit Logging

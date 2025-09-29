@@ -1,0 +1,38 @@
+src/
+├── components/
+│   ├── common/
+│   │   ├── Navbar.jsx
+│   │   ├── Footer.jsx
+│   │   └── Button.jsx
+│   ├── home/
+│   │   ├── HeroSection.jsx
+│   │   ├── StatsSection.jsx
+│   │   └── FeaturesSection.jsx
+│   ├── student/
+│   │   ├── StudentSignup.jsx
+│   │   ├── StudentLogin.jsx
+│   │   ├── StudentDashboard.jsx
+│   │   ├── StudentProfile.jsx
+│   │   └── ApplicationHistory.jsx
+│   ├── institution/
+│   │   ├── InstitutionSignup.jsx
+│   │   ├── InstitutionLogin.jsx
+│   │   ├── InstitutionDashboard.jsx
+│   │   ├── StudentManagement.jsx
+│   │   └── PlacementManagement.jsx
+│   ├── admin/
+│   │   ├── AdminLogin.jsx
+│   │   ├── AdminDashboard.jsx
+│   │   ├── InstitutionApproval.jsx
+│   │   └── SystemSettings.jsx
+│   └── auth/
+│       ├── AuthLayout.jsx
+│       └── ProtectedRoute.jsx
+├── pages/
+│   ├── Home.jsx
+│   ├── StudentPages.jsx
+│   ├── InstitutionPages.jsx
+│   └── AdminPages.jsx
+├── hooks/
+├── utils/
+└── ...
