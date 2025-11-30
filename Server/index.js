@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,8 +8,9 @@ import dotenv from 'dotenv';
 
 // Import routes
 import authRoutes from './routes/auth.js';
-// import adminRoutes from './routes/admin/adminRoutes.js';
-// import institutionRoutes from './routes/institution/institutionRoutes.js';
+import { initTokenCleanup } from './utils/tokenUtils.js';
+import adminRoutes from './routes/admin/adminRoutes.js';
+import institutionRoutes from './routes/institution/institutionRoutes.js';
 // import studentRoutes from './routes/student/studentRoutes.js';
 
 dotenv.config();
@@ -27,18 +29,24 @@ app.use('/api/', limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL,
   credentials: true
 }));
+
+// Cookie parsing middleware
+app.use(cookieParser());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/placement_portal')
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');
+
+    // token cleanup
+    initTokenCleanup();
   })
   .catch((error) => {
     console.error('❌ MongoDB connection error:', error);
@@ -47,8 +55,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/placement
 
 // Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/admin', adminRoutes);
-// app.use('/api/institution', institutionRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/institution', institutionRoutes);
 // app.use('/api/student', studentRoutes);
 
 // Health check endpoint

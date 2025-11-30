@@ -1,32 +1,21 @@
-import axios from "axios";
+import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   headers: {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json'
   },
+  withCredentials: true  // CRITICAL: Send cookies with requests
 });
 
+// Simple error handling - NO automatic redirects
 axiosClient.interceptors.response.use(
-  (response) => {
-     if (response.status >= 400) {
-        console.log(`axiosClient Error: status=${response.status}`)
-    }
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.code === "ERR_NETWORK") {
-      if (!window.navigator.onLine) {
-        console.log("Device offline.");
-      } else {
-        console.log("Cannot reach the server. Please try again later.");
-      }
+    if (error.response?.status === 401) {
+      console.log('Authentication failed:', error.response.data.message);
     }
-    else {
-      console.log(`${error?.status} - ${error.response?.data?.message || error.message}`);
-    }
-    console.error("API error:", error.response?.data?.message || error.message);
+    
     return Promise.reject(error);
   }
 );

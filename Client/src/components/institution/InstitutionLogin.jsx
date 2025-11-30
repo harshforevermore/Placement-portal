@@ -1,27 +1,48 @@
-import { useState } from 'react';
-import { Building2, Mail, Lock, Eye, EyeOff, Shield, Users } from 'lucide-react';
+import { useState, useEffect } from "react";
+import {
+  Building2,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Shield,
+  Users,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useAuth } from "../../context/AuthContext";
 
-const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
+const InstitutionLogin = () => {
+  const { login, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
-    institutionEmail: '',
-    password: '',
-    institutionId: ''
+    email: "",
+    password: "",
+    institutionId: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
+  const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(`/${user.role}/dashboard`);
+    }
+  }, [isAuthenticated, user, navigate]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: "",
       }));
     }
   };
@@ -29,20 +50,20 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.institutionEmail) {
-      newErrors.institutionEmail = 'Institution email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.institutionEmail)) {
-      newErrors.institutionEmail = 'Please enter a valid email address';
+    if (!formData.email) {
+      newErrors.email = "Institution email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     if (!formData.institutionId) {
-      newErrors.institutionId = 'Institution ID is required';
+      newErrors.institutionId = "Institution ID is required";
     }
 
     setErrors(newErrors);
@@ -56,12 +77,25 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
     setIsLoading(true);
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Institution login:', formData);
+      const result = await login(formData, "institution");
       // Handle successful login
-      onClose();
+      if (result.success) {
+        toast.success("logged in successfully");
+        navigate("/institution/dashboard");
+      }else {
+        throw new Error("EMAIL_NOT_VERIFIED");
+      }
     } catch (error) {
-      console.error('Login failed:', error);
+      if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {
+        // Redirect with email in query params
+        navigate(
+          `/verify-email?email=${encodeURIComponent(
+            formData.email
+          )}&type=institution`
+        );
+      } else {
+        setErrors(error.response?.data?.message || "Login failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +111,9 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">Institution Login</h2>
-            <p className="text-slate-400 text-sm">Access your placement management dashboard</p>
+            <p className="text-slate-400 text-sm">
+              Access your placement management dashboard
+            </p>
           </div>
         </div>
       </div>
@@ -93,15 +129,15 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400 w-5 h-5" />
             <input
               type="email"
-              name="institutionEmail"
-              value={formData.institutionEmail}
+              name="email"
+              value={formData.email}
               onChange={handleInputChange}
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-12 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="admin@university.edu"
             />
           </div>
-          {errors.institutionEmail && (
-            <p className="text-red-400 text-sm">{errors.institutionEmail}</p>
+          {errors.email && (
+            <p className="text-red-400 text-sm">{errors.email}</p>
           )}
         </div>
 
@@ -146,7 +182,11 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-purple-400 transition-colors"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
             </button>
           </div>
           {errors.password && (
@@ -198,7 +238,9 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
             <div className="w-full border-t border-slate-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-slate-800 text-slate-400">Need an account?</span>
+            <span className="px-2 bg-slate-800 text-slate-400">
+              Need an account?
+            </span>
           </div>
         </div>
       </div>
@@ -206,27 +248,27 @@ const InstitutionLogin = ({ onClose, onSwitchToSignup }) => {
       {/* Sign Up Link */}
       <div className="text-center">
         <button
-          onClick={onSwitchToSignup}
+          onClick={() => navigate("/institution/signup")}
           className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
         >
           Register your institution
         </button>
       </div>
 
-      {/* Help Section */}
+      {/* Help Section
       <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
         <div className="flex items-start gap-3">
           <Shield className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
           <div>
             <h4 className="text-sm font-medium text-white mb-1">Institution Access</h4>
             <p className="text-xs text-slate-400">
-              Use your official institution email and unique Institution ID. Contact your system administrator if you need assistance.
+              Use your official institution email and unique Institution ID.
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
-  )
+  );
 };
 
 export default InstitutionLogin;

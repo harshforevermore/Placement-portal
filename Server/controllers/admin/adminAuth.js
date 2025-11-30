@@ -1,35 +1,30 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-import User from '../../models/admin/admin.js';
-import { generateTokenPair } from '../../utils/tokenUtils.js';
+// import User from '../../models/admin/admin.js';
+import { generateTokenPair, getDeviceInfo } from '../../utils/tokenUtils.js';
 import { sendEmail } from '../../utils/emailService.js';
 import { validateAdminCode } from '../../utils/validation.js';
 import Admin from '../../models/admin/admin.js';
+import RefreshToken from '../../models/refreshToken.js';
+import { accessTokenCookieOptions, refreshTokenCookieOptions } from '../../utils/tokenUtils.js';
 
 dotenv.config();
 
 // ==================== ADMIN LOGIN ====================
 export const adminLogin = async (req, res) => {
+  console.log("adminLogin Executed");
   try {
     const { email, password, adminCode } = req.body;
 
-    // Verify admin code
-    if (adminCode !== process.env.ADMIN_CODE) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid admin code'
-      });
-    }
-
     // Find admin user
-    const user = await User.findOne({ 
-      email, 
-      role: 'admin',
+    const admin = await Admin.findOne({ 
+      email,
+      adminCode,
       isActive: true 
     }).select('+password');
 
-    if (!user) {
+    if (!admin) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -37,43 +32,55 @@ export const adminLogin = async (req, res) => {
     }
 
     // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid password'
       });
     }
 
     // Update last login
-    user.lastLogin = new Date();
-    await user.save();
+    admin.lastLogin = new Date();
+    await admin.save();
 
     // Generate tokens
     const data = {
-      id: user.id,
-      role: user.role,
-      email: user.email
+      role: admin.role,
+      email: admin.email
     };
     const { accessToken, refreshToken } = generateTokenPair(data);
 
+    //save refresh token to database
+    await RefreshToken.create({
+      token: refreshToken,
+      userId: admin._id,
+      userModel: 'Admin',
+      userRole: 'admin',
+      email: admin.email,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      deviceInfo: getDeviceInfo(req)
+    });
+
     // Log admin login activity
-    console.log(`🔐 Admin login: ${user.email} at ${new Date().toISOString()}`);
+    console.log(`🔐 Admin login: ${admin.email} at ${new Date().toISOString()}`);
+
+    //send access and refresh tokens as cookies
+    res.cookie('accT', accessToken, accessTokenCookieOptions);
+    res.cookie('refT', refreshToken, refreshTokenCookieOptions);
 
     res.json({
       success: true,
       message: 'Admin login successful',
       data: {
         user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          adminProfile: user.adminProfile,
-          lastLogin: user.lastLogin
-        },
-        accessToken,
-        refreshToken
+          id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          role: admin.role,
+          adminProfile: admin.adminProfile,
+          lastLogin: admin.lastLogin
+        }
       }
     });
 
@@ -90,8 +97,11 @@ export const adminLogin = async (req, res) => {
 export const adminRegister = async (req, res) => {
   console.log("Admin Register Executed");
   try {
+    console.log("line 1");
     const { firstName, lastName, email, password, adminCode, adminLevel = 'standard' } = req.body;
-
+    
+    console.log("Req.body: ", req.body);
+    
     // Validate required fields using your validation utils
     if (!adminCode) {
       return res.status(400).json({
@@ -99,7 +109,8 @@ export const adminRegister = async (req, res) => {
         message: 'Admin code is required'
       });
     }
-
+    console.log("line 2");
+    
     // Validate admin code format
     if (!validateAdminCode(adminCode)) {
       return res.status(400).json({
@@ -107,9 +118,9 @@ export const adminRegister = async (req, res) => {
         message: 'Admin code must be 6 alphanumeric characters'
       });
     }
-
+    console.log("line 3");
+    
     // Check if admin already exists
-    console.log("line 1");
     const existingAdmin = await Admin.findOne({ email }); // Use Admin model, not User
     if (existingAdmin) {
       return res.status(400).json({
@@ -117,14 +128,13 @@ export const adminRegister = async (req, res) => {
         message: 'Admin with this email already exists'
       });
     }
-    console.log("line 2");
+    console.log("line 4");
     
     // Determine permissions based on admin level
     const permissions = adminLevel === 'super' 
       ? ['user_management', 'institution_approval', 'system_settings', 'reports']
       : ['user_management', 'institution_approval'];
       
-    console.log("line 3");
     
     // Create admin user with Admin model
     const adminUser = new Admin({
@@ -137,20 +147,10 @@ export const adminRegister = async (req, res) => {
       permissions,
       isVerified: true // Admins are auto-verified
     });
-    console.log("line 4");
+    console.log("line 4.5");
     
     await adminUser.save();
 
-    // Generate tokens
-    const data = {
-      id: adminUser.id,
-      role: 'admin', // Set role for JWT
-      email: adminUser.email
-    };
-    console.log("line 5");
-    const { accessToken, refreshToken } = generateTokenPair(data);
-    
-    console.log("line 6");
     // Log admin creation
     console.log(`👤 New admin created: ${adminUser.email} (${adminLevel}) at ${new Date().toISOString()}`);
 
@@ -166,9 +166,7 @@ export const adminRegister = async (req, res) => {
           role: 'admin',
           adminLevel: adminUser.adminLevel,
           permissions: adminUser.permissions
-        },
-        accessToken,
-        refreshToken
+        }
       }
     });
 
@@ -180,83 +178,6 @@ export const adminRegister = async (req, res) => {
     });
   }
 };
-// export const adminRegister = async (req, res) => {
-//   console.log("Admin Register Executed");
-//   try {
-//     const { firstName, lastName, email, password, adminLevel = 'standard' } = req.body;
-
-//     // Check if admin already exists
-//     console.log("line 1");
-//     const existingUser = await User.findOne({ email });
-//     if (existingUser) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Admin with this email already exists'
-//       });
-//     }
-//     console.log("line 2");
-    
-//     // Determine permissions based on admin level
-//     const permissions = adminLevel === 'super' 
-//       ? ['user_management', 'institution_approval', 'system_settings', 'reports']
-//       : ['user_management', 'institution_approval'];
-      
-//       console.log("line 3");
-//       // Create admin user
-//       const adminUser = new User({
-//       firstName,
-//       lastName,
-//       email,
-//       password,
-//       role: 'admin',
-//       isVerified: true, // Admins are auto-verified
-//       adminProfile: {
-//         adminLevel,
-//         permissions
-//       }
-//     });
-//     console.log("line 4");
-    
-//     await adminUser.save();
-
-//     // Generate tokens
-//     const data = {
-//       id: adminUser.id,
-//       role: adminUser.role,
-//       email: adminUser.email
-//     };
-//     console.log("line 5");
-//     const { accessToken, refreshToken } = generateTokenPair(data);
-    
-//     console.log("line 6");
-//     // Log admin creation
-//     console.log(`👤 New admin created: ${adminUser.email} (${adminLevel}) at ${new Date().toISOString()}`);
-
-//     res.status(201).json({
-//       success: true,
-//       message: 'Admin registration successful',
-//       data: {
-//         user: {
-//           id: adminUser._id,
-//           firstName: adminUser.firstName,
-//           lastName: adminUser.lastName,
-//           email: adminUser.email,
-//           role: adminUser.role,
-//           adminProfile: adminUser.adminProfile
-//         },
-//         accessToken,
-//         refreshToken
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('❌ Admin registration error:', error);
-//     res.status(500).json({
-//       success: false,
-//       message: 'Server error during admin registration'
-//     });
-//   }
-// };
 
 // ==================== ADMIN PASSWORD RESET ====================
 export const adminForgotPassword = async (req, res) => {

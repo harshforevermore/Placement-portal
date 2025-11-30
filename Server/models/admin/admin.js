@@ -52,9 +52,13 @@ const adminSchema = new mongoose.Schema({
   lockUntil: {
     type: Date
   },
+  adminLevel: {
+    type: String,
+    default: "standard"
+  },
   permissions: {
     type: [String],
-    default: ['manage_institutions', 'manage_users', 'view_reports', 'system_settings']
+    default: ['user_management', 'institution_approval']
   }
 }, {
   timestamps: true,
@@ -86,8 +90,8 @@ adminSchema.pre('save', async function(next) {
 });
 
 // Compare password method
-adminSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+adminSchema.methods.comparePassword = async function(pass) {
+  return await bcrypt.compare(pass, this.password);
 };
 
 // Compare admin code method

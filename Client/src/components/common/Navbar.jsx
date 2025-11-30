@@ -61,7 +61,7 @@ const Navbar = () => {
               <div className="bg-blue-600 p-2 rounded-lg">
                 <span className="text-white font-bold text-xl">PP</span>
               </div>
-              <span className="ml-3 text-white text-xl font-semibold">Placement Portal</span>
+              {/* <span className="ml-3 text-white text-xl font-semibold">Placement Portal</span> */}
             </Link>
             
             {/* Auth Buttons */}

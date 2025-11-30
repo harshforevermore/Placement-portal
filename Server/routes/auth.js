@@ -14,10 +14,11 @@ import { body } from 'express-validator';
   // verifyEmail
 // } from '../controllers/authController.js';
 import { adminRegister, adminLogin } from '../controllers/admin/adminAuth.js';
-import { /*deleteInstitution,*/ institutionLogin, institutionRegister, verifyInstitutionEmail } from '../controllers/institution/institutionAuth.js';
+import { /*deleteInstitution,*/ institutionLogin, institutionRegister } from '../controllers/institution/institutionAuth.js';
 import { studentLogin, studentRegister } from '../controllers/student/studentAuth.js';
 import { validateRequest } from '../middleware/validation.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, isInstitutionEmailVerified, isStudentEmailVerified } from '../middleware/auth.js';
+import { emailVerification, logout, logoutAllDevices, refreshToken, resendVerificationEmail, verifyToken } from '../controllers/authController.js';
 
 const router = express.Router();
 
@@ -25,7 +26,6 @@ const router = express.Router();
 const loginValidation = [
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Please enter a valid email'),
   body('password')
     .isLength({ min: 6 })
@@ -50,7 +50,6 @@ const registerValidation = [
     .withMessage('Name must be between 2 and 50 characters'),
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Please enter a valid email'),
   body('password')
     .isLength({ min: 6 })
@@ -65,7 +64,6 @@ const institutionRegisterValidation = [
     .withMessage('Institution name must be between 2 and 100 characters'),
   body('email')
     .isEmail()
-    .normalizeEmail()
     .withMessage('Please enter a valid email'),
   body('emailDomain')
     .matches(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)
@@ -76,27 +74,30 @@ const institutionRegisterValidation = [
   body('institutionType')
     .isIn(['University', 'College', 'Institute', 'School'])
     .withMessage('Invalid institution type'),
-  body('contactInfo.phone')
+  body('phone')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Please enter a valid phone number'),
-  body('address.street')
+  body('street')
     .notEmpty()
     .withMessage('Street address is required'),
-  body('address.city')
+  body('city')
     .notEmpty()
     .withMessage('City is required'),
-  body('address.state')
+  body('state')
     .notEmpty()
     .withMessage('State is required'),
-  body('address.zipCode')
+  body('zipCode')
     .notEmpty()
-    .withMessage('Zip code is required')
+    .withMessage('Zip code is required'),
+  body('country')
+    .notEmpty()
+    .withMessage('Country is required')
 ];
 
 const studentRegisterValidation = [
   ...registerValidation,
   body('institutionId')
-    .isMongoId()
+    .notEmpty()
     .withMessage('Valid institution ID is required'),
   body('rollNumber')
     .trim()
@@ -135,6 +136,7 @@ router.post('/admin/register',
 router.post('/institution/login',
   loginValidation,
   validateRequest,
+  isInstitutionEmailVerified,
   institutionLogin
 );
 
@@ -145,9 +147,6 @@ router.post('/institution/register',
   institutionRegister
 );
 
-//POST /api/auth/verify-institution-email
-router.post('/verify-institution-email/:token', verifyInstitutionEmail);
-
 // router.post('/institution/cleanup/:email',
 //   deleteInstitution
 // );
@@ -157,6 +156,7 @@ router.post('/verify-institution-email/:token', verifyInstitutionEmail);
 router.post('/student/login',
   loginValidation,
   validateRequest,
+  isStudentEmailVerified,
   studentLogin
 );
 
@@ -167,12 +167,29 @@ router.post('/student/register',
   studentRegister
 );
 
-// ==================== COMMON ROUTES ====================
-// POST /api/auth/logout
-// router.post('/logout', authenticate, logout);
+// ==================== TOKEN MANAGEMENT ====================
+// GET /api/auth/verify
+router.get('/verify', authenticate, verifyToken);
 
 // POST /api/auth/refresh-token
-// router.post('/refresh-token', refreshToken);
+router.post('/refresh-token', refreshToken);
+
+// ==================== EMAIL VERIFICATION ====================
+
+//POST /api/auth/resend-verification
+router.post('/resend-verification', resendVerificationEmail);
+
+//POST /api/auth/verify-email/:userType/:token
+router.post('/verify-email/:userType/:token', emailVerification);
+
+
+// ==================== COMMON ROUTES ====================
+
+// POST /api/auth/logout
+router.post('/logout', authenticate, logout);
+
+// POST /api/auth/logout-all
+router.post('/logout-all', authenticate, logoutAllDevices);
 
 // POST /api/auth/forgot-password
 // router.post('/forgot-password',
@@ -193,9 +210,6 @@ router.post('/student/register',
 //   validateRequest,
 //   resetPassword
 // );
-
-// GET /api/auth/verify-email/:token
-// router.get('/verify-email/:token', verifyEmail);
 
 // GET /api/auth/me - Get current user info
 router.get('/me', authenticate, async (req, res) => {

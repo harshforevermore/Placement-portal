@@ -2,7 +2,7 @@ import { validationResult } from 'express-validator';
 
 // Validation middleware to handle express-validator errors
 export const validateRequest = (req, res, next) => {
-  console.log()
+  // console.log(req);
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
@@ -18,6 +18,7 @@ export const validateRequest = (req, res, next) => {
       errors: errorMessages
     });
   }
+  console.log("validate Request executed completely");
 
   next();
 };
@@ -99,7 +100,7 @@ export const validateInstitutionData = (req, res, next) => {
     });
   }
 
-  if (!address || !address.street || !address.city || !address.state || !address.zipCode) {
+  if (!address.street || !address.city || !address.state || !address.zipCode || !address.country) {
     errors.push({
       field: 'address',
       message: 'Complete address is required'

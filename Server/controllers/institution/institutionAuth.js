@@ -2,29 +2,34 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 // import User from '../../models/institution/institutionAdmin.js';
 import Institution from "../../models/institution/institution.js";
-import { generateTokenPair } from "../../utils/tokenUtils.js";
+import { generateTokenPair, getDeviceInfo } from "../../utils/tokenUtils.js";
 import { sendEmail } from "../../utils/emailService.js";
+import { createInstitutionId } from "../../utils/institutionUtil.js";
+import RefreshToken from "../../models/refreshToken.js";
+import { accessTokenCookieOptions, refreshTokenCookieOptions } from "../../utils/tokenUtils.js";
 
 // ==================== INSTITUTION LOGIN ====================
 export const institutionLogin = async (req, res) => {
   //More to do in this function
+  console.log("Institution login");
   try {
-    const { email, password } = req.body;
-
+    const { email, password, institutionId } = req.body;
     // Find institution admin user
     const institution = await Institution.findOne({
       email,
+      institutionId
     })
-      .select("+password")
-      .populate("institutionId");
-
+    .select("+password")
+    .populate("institutionId");
+    
+    
     if (!institution) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Institution not found",
       });
     }
-
+    
     if (institution.status !== "approved") {
       return res.status(401).json({
         success: false,
@@ -32,7 +37,7 @@ export const institutionLogin = async (req, res) => {
         institutionStatus: institution.status,
       });
     }
-
+    
     // Check password
     const isPasswordValid = await bcrypt.compare(
       password,
@@ -41,21 +46,32 @@ export const institutionLogin = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Invalid password",
       });
     }
-
+    
     // Update last login
     institution.lastLogin = new Date();
     await institution.save();
-
+    
     // Generate tokens
     const data = {
-      role: "institution",
+      role: institution.role,
       email: institution.email,
     };
     const { accessToken, refreshToken } = generateTokenPair(data);
 
+    //save refresh token to database
+    await RefreshToken.create({
+      token: refreshToken,
+      userId: institution._id,
+      userModel: 'Institution',
+      userRole: 'institution',
+      email: institution.email,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), //7 days
+      deviceInfo: getDeviceInfo(req)
+    });
+    
     // Log institution login
     console.log(
       `🏫 Institution login: ${institution.email} (${
@@ -63,20 +79,22 @@ export const institutionLogin = async (req, res) => {
       }) at ${new Date().toISOString()}`
     );
 
+    // Set cookies
+    res.cookie('accT', accessToken, accessTokenCookieOptions);
+    res.cookie('refT', refreshToken, refreshTokenCookieOptions);
+
     res.json({
       success: true,
       message: "Institution login successful",
       data: {
         user: {
-          role: "institution",
           name: institution.institutionName,
           email: institution.email,
+          role: institution.role,
           status: institution.status,
           type: institution.institutionType,
           lastLogin: institution.lastLogin,
-        },
-        accessToken,
-        refreshToken,
+        }
       },
     });
   } catch (error) {
@@ -97,65 +115,64 @@ export const institutionRegister = async (req, res) => {
     password,
     institutionName,
     institutionType,
-    contactInfo,
-    address,
+    phone,
+    website,
+    street,
+    city,
+    state,
+    zipCode,
+    country,
     establishedYear,
-    description,
   } = req.body;
   try {
-
-    console.log("Line 1");
     // Check if institution already exists
     const existingInstitution = await Institution.findOne({
       $or: [{ email: email }, { institutionName: institutionName }],
     });
 
-    console.log("Line 2");
     if (existingInstitution) {
       return res.status(400).json({
         success: false,
         message: "Institution with this name or email already exists",
       });
     }
-    
-    
-    console.log("Line 3");
+
     // Create institution with session
     const institution = new Institution({
-      institutionName: institutionName,
-      institutionType: institutionType,
-      email: email,
-      emailDomain: emailDomain,
-      password: password,
-      contactInfo: contactInfo,
-      address: address,
-      establishedYear: establishedYear,
-      description: description,
+      institutionName,
+      institutionType,
+      email,
+      emailDomain,
+      password,
+      contactInfo: {
+        phone,
+        website
+      },
+      address: {
+        street,
+        city,
+        state,
+        zipCode,
+        country
+      },
+      establishedYear,
       status: "pending",
     });
-    
+
     // Generate email verification token using the schema method
     const verificationToken = institution.generateVerificationToken();
-    console.log("verificationToken: ", verificationToken);
 
-    console.log("Line 4");
+    //create institutionId
+    const institutionId = await createInstitutionId(institution.institutionName);
+
+    institution.institutionId = institutionId;
     await institution.save();
 
-    console.log("Line 5");
-
-    console.log("Line 6");
-    await institution.save();
-
-    console.log("Line 7");
     // Send verification email
-    console.log("env check: ");
-    console.log("FRONTEND_URL: ", process.env.FRONTEND_URL);
-
-    try {
-      await sendEmail({
-        to: institution.email,
-        subject: "Verify Your Institution Account",
-        message: `
+    await sendEmail({
+      to: institution.email,
+      subject: "Verify Your Institution Account",
+      message: `
           Welcome to the Placement Portal!
           
           Please verify your institution account by clicking the link below:
@@ -168,11 +185,7 @@ export const institutionRegister = async (req, res) => {
           
           This link will expire in 24 hours.
         `,
-      });
-    } catch (emailError) {
-      console.error("Email sending error:", emailError);
-      // Don't fail the transaction for email errors
-    }
+    });
 
     // Log institution registration
     console.log(
@@ -195,84 +208,20 @@ export const institutionRegister = async (req, res) => {
     // Rollback the transaction on any error
     try {
       await Institution.deleteOne({ email: email });
-      console.log(`🧹 Auto-cleanup performed for failed registration: ${email}`);
+      console.log(
+        `🧹 Auto-cleanup performed for failed registration: ${email}`
+      );
     } catch (error) {
-      console.log("Error occured while cleaning up the institution: ", error.message);
-    };
+      console.log(
+        "Error occured while cleaning up the institution: ",
+        error.message
+      );
+    }
 
     console.error("❌ Institution registration error:", error);
     res.status(500).json({
       success: false,
       message: "Server error during institution registration",
-    });
-  }
-};
-
-// ==================== INSTITUTION EMAIL VERIFICATION ====================
-export const verifyInstitutionEmail = async (req, res) => {
-  try {
-    const { token } = req.params;
-
-    const institution = await Institution.findOne({
-      VerificationToken: token,
-      VerificationExpires: { $gt: Date.now() },
-    });
-
-    if (!institution) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired verification token",
-      });
-    }
-
-    // Verify institution email
-    institution.institutionEmailVerification = true;
-    institution.verificationToken = undefined;
-    institution.verificationExpires = undefined;
-
-    await user.save();
-
-    // Log email verification
-    console.log(
-      `✅ Institution email verified: ${
-        institution.email
-      } at ${new Date().toISOString()}`
-    );
-
-    try {
-      await sendEmail({
-        to: institution.email,
-        subject: "Email Verification",
-        message: `
-          Welcome to the Placement Portal!
-          
-          Your Institution email has been verified successfully.
-          
-          Institution: ${institution.institutionName}
-          Status: Pending Admin Approval
-          
-          Your institution will be reviewed by our admin team. Lookout for any further emails.
-        `,
-      });
-    } catch (emailError) {
-      console.error("Email sending error:", emailError);
-      // Don't fail the transaction for email errors
-    }
-
-    res.json({
-      success: true,
-      message:
-        "Email verification successful. Your institution is now pending admin approval.",
-      data: {
-        isVerified: true,
-        pendingApproval: true,
-      },
-    });
-  } catch (error) {
-    console.error("❌ Institution email verification error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error during email verification",
     });
   }
 };

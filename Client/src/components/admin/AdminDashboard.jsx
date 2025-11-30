@@ -1,53 +1,174 @@
-import { useState } from 'react';
-import { 
-  Users, 
-  Building2, 
-  UserCheck, 
-  AlertTriangle, 
-  TrendingUp, 
-  Settings,
+import { useState, useEffect } from "react";
+import {
+  Users,
+  Building2,
+  UserCheck,
+  AlertTriangle,
+  TrendingUp,
   Search,
   Filter,
   MoreVertical,
   CheckCircle,
   XCircle,
-  Clock
-} from 'lucide-react';
+  Clock,
+  Loader2,
+  UserRound,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import axiosClient from "../../API/axiosClient";
+import { useAuth } from "../../context/AuthContext";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const {logout} = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalInstitutions: 0,
+    totalStudents: 0,
+    pendingApprovals: 0,
+    activeUsers: 0,
+    growth: {
+      institutions: 0,
+      students: 0,
+      users: 0,
+    },
+  });
+  const [recentInstitutions, setRecentInstitutions] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
 
-  // Mock data
-  const stats = {
-    totalInstitutions: 45,
-    totalStudents: 12847,
-    pendingApprovals: 8,
-    activeUsers: 11239
+  // Fetch dashboard data
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch stats
+      const statsResponse = await axiosClient.get("/api/admin/dashboard/stats");
+      if (statsResponse.data.success) {
+        setStats(statsResponse.data.data);
+      }
+
+      // Fetch recent institutions
+      const institutionsResponse = await axiosClient.get(
+        "/api/admin/dashboard/recent-institutions?limit=10"
+      );
+      if (institutionsResponse.data.success) {
+        setRecentInstitutions(institutionsResponse.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const recentInstitutions = [
-    { id: 1, name: 'IIT Delhi', location: 'New Delhi', status: 'pending', date: '2025-01-05' },
-    { id: 2, name: 'BITS Pilani', location: 'Pilani', status: 'approved', date: '2025-01-04' },
-    { id: 3, name: 'NIT Warangal', location: 'Warangal', status: 'pending', date: '2025-01-03' },
-    { id: 4, name: 'VIT Vellore', location: 'Vellore', status: 'rejected', date: '2025-01-02' }
-  ];
+  const handleApprove = async (institutionId) => {
+    try {
+      const response = await axiosClient.put(
+        `/api/admin/institutions/${institutionId}/approve`,
+        {
+          notes: "Approved by admin",
+        }
+      );
+
+      if (response.data.success) {
+        // Refresh data
+        fetchDashboardData();
+        toast.success("Institution approved successfully!");
+      }
+    } catch (error) {
+      console.error("Approval failed:", error);
+      toast.error("Failed to approve institution");
+    }
+  };
+
+  const handleReject = async (institutionId) => {
+    // const reason = prompt("Enter rejection reason:");
+    if (!reason) return;
+
+    try {
+      const response = await axiosClient.put(
+        `/api/admin/institutions/${institutionId}/reject`,
+        {
+          // reason,
+          notes: "",
+        }
+      );
+
+      if (response.data.success) {
+        fetchDashboardData();
+        toast.success("Institution rejected successfully!");
+      }
+    } catch (error) {
+      console.error("Rejection failed:", error);
+      toast.error("Failed to reject institution");
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'approved': return 'text-green-400 bg-green-900/30';
-      case 'pending': return 'text-yellow-400 bg-yellow-900/30';
-      case 'rejected': return 'text-red-400 bg-red-900/30';
-      default: return 'text-slate-400 bg-slate-900/30';
+      case "approved":
+        return "text-green-400 bg-green-900/30";
+      case "pending":
+        return "text-yellow-400 bg-yellow-900/30";
+      case "rejected":
+        return "text-red-400 bg-red-900/30";
+      default:
+        return "text-slate-400 bg-slate-900/30";
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'approved': return <CheckCircle size={16} />;
-      case 'pending': return <Clock size={16} />;
-      case 'rejected': return <XCircle size={16} />;
-      default: return null;
+      case "approved":
+        return <CheckCircle size={16} />;
+      case "pending":
+        return <Clock size={16} />;
+      case "rejected":
+        return <XCircle size={16} />;
+      default:
+        return null;
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
+
+  const profileDialogBox = () => {
+    return (
+      <section className="profile-dialog-container absolute right-0 top-11 bg-slate-800 border border-slate-700 rounded-xl p-3 shadow-[0_0_3px_white]">
+        <section className="option-box py-1 px-2 flex items-center gap-2 rounded-lg hover:bg-gray-500">
+          <Settings size={20} />
+          <span className="option-name text-lg">Settings</span>
+        </section>
+        <hr className="border-slate-600 my-0.5" />
+        <section className="option-box py-1 px-2 flex items-center gap-2 rounded-lg hover:bg-gray-500">
+          <LogOut size={20} />
+          <span className="option-name text-lg" onClick={handleLogout}>Logout</span>
+        </section>
+      </section>
+    );
   };
 
   return (
@@ -57,21 +178,32 @@ const AdminDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div>
-              <h1 className="text-2xl font-bold text-white">Platform Admin</h1>
-              <p className="text-slate-400 text-sm">Manage the entire placement ecosystem</p>
+              <h1 className="text-2xl font-bold text-white underline decoration-blue-600 decoration-5">
+                Admin
+              </h1>
+              {/* <p className="text-slate-400 text-sm">Manage the entire placement ecosystem</p> */}
             </div>
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  size={20}
+                />
                 <input
                   type="text"
                   placeholder="Search institutions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <button className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors duration-200">
-                <Settings size={20} />
-              </button>
+              <section onClick={() => setShowProfileDialog((prev) => !prev)} className="relative cursor-pointer p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors duration-200">
+                <UserRound
+                  size={20}
+                  className="cursor-pointer"
+                />
+                {showProfileDialog && profileDialogBox()}
+              </section>
             </div>
           </div>
         </div>
@@ -83,16 +215,36 @@ const AdminDashboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm font-medium">Total Institutions</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.totalInstitutions}</p>
+                <p className="text-slate-400 text-sm font-medium">
+                  Total Institutions
+                </p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {stats.totalInstitutions}
+                </p>
               </div>
               <div className="bg-blue-600 p-3 rounded-lg">
                 <Building2 className="text-white" size={24} />
               </div>
             </div>
             <div className="flex items-center mt-4 text-sm">
-              <TrendingUp className="text-green-400 mr-1" size={16} />
-              <span className="text-green-400">+12%</span>
+              <TrendingUp
+                className={`mr-1 ${
+                  stats.growth.institutions >= 0
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+                size={16}
+              />
+              <span
+                className={
+                  stats.growth.institutions >= 0
+                    ? "text-green-400"
+                    : "text-red-400"
+                }
+              >
+                {stats.growth.institutions >= 0 ? "+" : ""}
+                {stats.growth.institutions}%
+              </span>
               <span className="text-slate-400 ml-1">from last month</span>
             </div>
           </div>
@@ -100,16 +252,32 @@ const AdminDashboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm font-medium">Total Students</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.totalStudents.toLocaleString()}</p>
+                <p className="text-slate-400 text-sm font-medium">
+                  Total Students
+                </p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {stats.totalStudents.toLocaleString()}
+                </p>
               </div>
               <div className="bg-green-600 p-3 rounded-lg">
                 <Users className="text-white" size={24} />
               </div>
             </div>
             <div className="flex items-center mt-4 text-sm">
-              <TrendingUp className="text-green-400 mr-1" size={16} />
-              <span className="text-green-400">+8%</span>
+              <TrendingUp
+                className={`mr-1 ${
+                  stats.growth.students >= 0 ? "text-green-400" : "text-red-400"
+                }`}
+                size={16}
+              />
+              <span
+                className={
+                  stats.growth.students >= 0 ? "text-green-400" : "text-red-400"
+                }
+              >
+                {stats.growth.students >= 0 ? "+" : ""}
+                {stats.growth.students}%
+              </span>
               <span className="text-slate-400 ml-1">from last month</span>
             </div>
           </div>
@@ -117,8 +285,12 @@ const AdminDashboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm font-medium">Pending Approvals</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.pendingApprovals}</p>
+                <p className="text-slate-400 text-sm font-medium">
+                  Pending Approvals
+                </p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {stats.pendingApprovals}
+                </p>
               </div>
               <div className="bg-yellow-600 p-3 rounded-lg">
                 <AlertTriangle className="text-white" size={24} />
@@ -133,16 +305,32 @@ const AdminDashboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm font-medium">Active Users</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.activeUsers.toLocaleString()}</p>
+                <p className="text-slate-400 text-sm font-medium">
+                  Active Users
+                </p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {stats.activeUsers.toLocaleString()}
+                </p>
               </div>
               <div className="bg-purple-600 p-3 rounded-lg">
                 <UserCheck className="text-white" size={24} />
               </div>
             </div>
             <div className="flex items-center mt-4 text-sm">
-              <TrendingUp className="text-green-400 mr-1" size={16} />
-              <span className="text-green-400">+5%</span>
+              <TrendingUp
+                className={`mr-1 ${
+                  stats.growth.users >= 0 ? "text-green-400" : "text-red-400"
+                }`}
+                size={16}
+              />
+              <span
+                className={
+                  stats.growth.users >= 0 ? "text-green-400" : "text-red-400"
+                }
+              >
+                {stats.growth.users >= 0 ? "+" : ""}
+                {stats.growth.users}%
+              </span>
               <span className="text-slate-400 ml-1">from last week</span>
             </div>
           </div>
@@ -151,18 +339,18 @@ const AdminDashboard = () => {
         {/* Navigation Tabs */}
         <div className="flex space-x-1 bg-slate-800 p-1 rounded-lg mb-8 w-fit">
           {[
-            { id: 'overview', label: 'Overview' },
-            { id: 'institutions', label: 'Institution Approvals' },
-            { id: 'users', label: 'User Management' },
-            { id: 'settings', label: 'System Settings' }
+            { id: "overview", label: "Overview" },
+            { id: "institutions", label: "Institution Approvals" },
+            { id: "users", label: "User Management" },
+            { id: "settings", label: "System Settings" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                 activeTab === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-slate-700"
               }`}
             >
               {tab.label}
@@ -171,58 +359,119 @@ const AdminDashboard = () => {
         </div>
 
         {/* Content based on active tab */}
-        {activeTab === 'overview' && (
+        {activeTab === "overview" && (
           <div className="space-y-8">
             {/* Recent Institution Applications */}
             <div className="bg-slate-800 border border-slate-700 rounded-xl">
               <div className="p-6 border-b border-slate-700">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-white">Recent Institution Applications</h2>
+                  <h2 className="text-xl font-semibold text-white">
+                    Recent Institution Applications
+                  </h2>
                   <div className="flex items-center space-x-2">
-                    <button className="p-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors duration-200">
+                    <button
+                      onClick={fetchDashboardData}
+                      className="p-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors duration-200"
+                    >
                       <Filter size={18} />
                     </button>
                   </div>
                 </div>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-slate-700">
-                      <th className="text-left p-4 text-slate-400 font-medium">Institution</th>
-                      <th className="text-left p-4 text-slate-400 font-medium">Location</th>
-                      <th className="text-left p-4 text-slate-400 font-medium">Status</th>
-                      <th className="text-left p-4 text-slate-400 font-medium">Date</th>
-                      <th className="text-left p-4 text-slate-400 font-medium">Actions</th>
+                      <th className="text-left p-4 text-slate-400 font-medium">
+                        Institution
+                      </th>
+                      <th className="text-left p-4 text-slate-400 font-medium">
+                        Location
+                      </th>
+                      <th className="text-left p-4 text-slate-400 font-medium">
+                        Status
+                      </th>
+                      <th className="text-left p-4 text-slate-400 font-medium">
+                        Date
+                      </th>
+                      <th className="text-left p-4 text-slate-400 font-medium">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {recentInstitutions.map((institution) => (
-                      <tr key={institution.id} className="border-b border-slate-700 hover:bg-slate-750">
-                        <td className="p-4">
-                          <div className="flex items-center">
-                            <div className="bg-blue-600 p-2 rounded-lg mr-3">
-                              <Building2 className="text-white" size={16} />
-                            </div>
-                            <span className="text-white font-medium">{institution.name}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 text-slate-400">{institution.location}</td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(institution.status)}`}>
-                            {getStatusIcon(institution.status)}
-                            <span className="ml-1 capitalize">{institution.status}</span>
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400">{new Date(institution.date).toLocaleDateString()}</td>
-                        <td className="p-4">
-                          <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors duration-200">
-                            <MoreVertical size={16} className="text-slate-400" />
-                          </button>
+                    {recentInstitutions.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          className="p-8 text-center text-slate-400"
+                        >
+                          No institutions found
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentInstitutions.map((institution) => (
+                        <tr
+                          key={institution.id}
+                          className="border-b border-slate-700 hover:bg-slate-750"
+                        >
+                          <td className="p-4">
+                            <div className="flex items-center">
+                              <div className="bg-blue-600 p-2 rounded-lg mr-3">
+                                <Building2 className="text-white" size={16} />
+                              </div>
+                              <span className="text-white font-medium">
+                                {institution.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-slate-400">
+                            {institution.location}
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                institution.status
+                              )}`}
+                            >
+                              {getStatusIcon(institution.status)}
+                              <span className="ml-1 capitalize">
+                                {institution.status}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-400">
+                            {new Date(institution.date).toLocaleDateString()}
+                          </td>
+                          <td className="p-4">
+                            {institution.status === "pending" ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApprove(institution.id)}
+                                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleReject(institution.id)}
+                                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors duration-200">
+                                <MoreVertical
+                                  size={16}
+                                  className="text-slate-400"
+                                />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -230,66 +479,108 @@ const AdminDashboard = () => {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200 cursor-pointer">
+              <div
+                onClick={() => setActiveTab("institutions")}
+                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200 cursor-pointer"
+              >
                 <div className="flex items-center mb-4">
                   <div className="bg-green-600 p-3 rounded-lg mr-4">
                     <CheckCircle className="text-white" size={24} />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">Review Approvals</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Review Approvals
+                  </h3>
                 </div>
-                <p className="text-slate-400 text-sm">Review and approve pending institution applications</p>
+                <p className="text-slate-400 text-sm">
+                  Review and approve pending institution applications
+                </p>
                 <div className="mt-4">
-                  <span className="text-yellow-400 font-medium">{stats.pendingApprovals} pending</span>
+                  <span className="text-yellow-400 font-medium">
+                    {stats.pendingApprovals} pending
+                  </span>
                 </div>
               </div>
 
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200 cursor-pointer">
+              <div
+                onClick={() => setActiveTab("users")}
+                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200 cursor-pointer"
+              >
                 <div className="flex items-center mb-4">
                   <div className="bg-purple-600 p-3 rounded-lg mr-4">
                     <Users className="text-white" size={24} />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">Manage Users</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Manage Users
+                  </h3>
                 </div>
-                <p className="text-slate-400 text-sm">View and manage all platform users</p>
+                <p className="text-slate-400 text-sm">
+                  View and manage all platform users
+                </p>
                 <div className="mt-4">
-                  <span className="text-green-400 font-medium">{stats.activeUsers.toLocaleString()} active</span>
+                  <span className="text-green-400 font-medium">
+                    {stats.activeUsers.toLocaleString()} active
+                  </span>
                 </div>
               </div>
 
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200 cursor-pointer">
+              <div
+                onClick={() => setActiveTab("settings")}
+                className="bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 transition-colors duration-200 cursor-pointer"
+              >
                 <div className="flex items-center mb-4">
                   <div className="bg-blue-600 p-3 rounded-lg mr-4">
                     <Settings className="text-white" size={24} />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">System Settings</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    System Settings
+                  </h3>
                 </div>
-                <p className="text-slate-400 text-sm">Configure platform settings and preferences</p>
+                <p className="text-slate-400 text-sm">
+                  Configure platform settings and preferences
+                </p>
                 <div className="mt-4">
-                  <span className="text-slate-400 font-medium">Configure system</span>
+                  <span className="text-slate-400 font-medium">
+                    Configure system
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'institutions' && (
+        {activeTab === "institutions" && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Institution Approval Management</h2>
-            <p className="text-slate-400">This section will contain detailed institution approval workflows, document verification, and approval history.</p>
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Institution Approval Management
+            </h2>
+            <p className="text-slate-400">
+              This section will contain detailed institution approval workflows,
+              document verification, and approval history.
+            </p>
           </div>
         )}
 
-        {activeTab === 'users' && (
+        {activeTab === "users" && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">User Management</h2>
-            <p className="text-slate-400">This section will contain user management tools, role assignments, and user activity monitoring.</p>
+            <h2 className="text-xl font-semibold text-white mb-4">
+              User Management
+            </h2>
+            <p className="text-slate-400">
+              This section will contain user management tools, role assignments,
+              and user activity monitoring.
+            </p>
           </div>
         )}
 
-        {activeTab === 'settings' && (
+        {activeTab === "settings" && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">System Settings</h2>
-            <p className="text-slate-400">This section will contain platform configuration options, feature toggles, and system maintenance tools.</p>
+            <h2 className="text-xl font-semibold text-white mb-4">
+              System Settings
+            </h2>
+            <p className="text-slate-400">
+              This section will contain platform configuration options, feature
+              toggles, and system maintenance tools.
+            </p>
           </div>
         )}
       </div>

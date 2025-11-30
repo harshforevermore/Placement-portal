@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Settings, 
@@ -11,8 +11,12 @@ import {
   ArrowLeft,
   KeyRound
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'sonner';
 
 const AdminLogin = () => {
+  const {login, isAuthenticated, user} = useAuth();
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -21,7 +25,15 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(`/${user.role}/dashboard`);
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -51,24 +63,14 @@ const AdminLogin = () => {
       return;
     }
 
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock authentication logic
-      if (formData.email === 'admin@placementportal.com' && 
-          formData.password === 'admin123' && 
-          formData.adminCode === 'SUPER2025') {
-        // Success - redirect to admin dashboard
-        navigate('/admin/dashboard');
-      } else {
-        setError('Invalid credentials or admin code');
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+    const result = await login(formData, "admin");
+    if (result.success) {
+      toast.success("Logged in successfully");
+      navigate('/admin/dashboard');
+    } else {
+      setError(result.message);
     }
+    setIsLoading(false);
   };
 
   return (

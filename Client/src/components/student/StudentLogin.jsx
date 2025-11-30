@@ -1,70 +1,103 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  User, 
-  Eye, 
-  EyeOff, 
-  GraduationCap, 
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  User,
+  Eye,
+  EyeOff,
+  GraduationCap,
   Lock,
   Mail,
   AlertTriangle,
   ArrowLeft,
   School,
-  CheckCircle
-} from 'lucide-react';
+  CheckCircle,
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const StudentLogin = () => {
+  const { login, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    rememberMe: false
+    email: "",
+    password: "",
+    institutionId: "",
+    rememberMe: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(`/${user.role}/dashboard`);
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
     // Clear error when user starts typing
-    if (error) setError('');
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.email) {
+      newErrors.email = "Institution email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+
+    if (!formData.institutionId) {
+      newErrors.institutionId = "Institution ID is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     setIsLoading(true);
-    setError('');
-
-    // Basic validation
-    if (!formData.email || !formData.password) {
-      setError('Please enter both email and password');
-      setIsLoading(false);
-      return;
-    }
-
-    if (!formData.email.includes('@')) {
-      setError('Please enter a valid email address');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      // Mock authentication logic
-      if (formData.email === 'student@iitdelhi.ac.in' && formData.password === 'student123') {
-        // Success - redirect to student dashboard
-        navigate('/student/dashboard');
-      } else {
-        setError('Invalid email or password. Please check your credentials.');
+      const result = await login(formData, "student");
+      console.log("Result", result);
+      // Handle successful login
+      if (result.success) {
+        toast.success("logged in successfully");
+        navigate("/student/dashboard");
       }
-    } catch (err) {
-      setError('Login failed. Please try again.');
+    } catch (error) {
+      console.log("error: ", error);
+      if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {
+        // Redirect with email in query params
+        navigate(
+          `/verify-email?email=${encodeURIComponent(
+            formData.email
+          )}&type=student`
+        );
+      } else {
+        setErrors(error.response?.data?.message || "Login failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +105,8 @@ const StudentLogin = () => {
 
   const handleForgotPassword = () => {
     // Handle forgot password logic
-    alert('Password reset link will be sent to your registered email address.');
+    console.log("Forgot pass");
+    // alert('Password reset link will be sent to your registered email address.');
   };
 
   return (
@@ -80,10 +114,10 @@ const StudentLogin = () => {
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-slate-900 to-green-900/10" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(34,197,94,0.1),transparent)] opacity-70" />
-      
+
       {/* Back to home link */}
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="absolute top-6 left-6 flex items-center text-slate-400 hover:text-white transition-colors duration-200 z-10"
       >
         <ArrowLeft size={20} className="mr-2" />
@@ -106,28 +140,28 @@ const StudentLogin = () => {
           <School className="text-green-400 mr-3 flex-shrink-0" size={20} />
           <div>
             <p className="text-green-200 text-sm font-medium">Welcome Back!</p>
-            <p className="text-green-300 text-xs">Track your placement journey and opportunities</p>
+            <p className="text-green-300 text-xs">
+              Track your placement journey and opportunities
+            </p>
           </div>
         </div>
 
         {/* Login Form */}
         <div className="bg-slate-800/80 backdrop-blur-sm p-8 rounded-2xl border border-slate-700/50 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 flex items-center animate-in slide-in-from-top-2 duration-300">
-                <AlertTriangle className="text-red-400 mr-3 flex-shrink-0" size={20} />
-                <p className="text-red-200 text-sm">{error}</p>
-              </div>
-            )}
-
             {/* Email Field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-slate-300">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-slate-300"
+              >
                 Student Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <Mail
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  size={20}
+                />
                 <input
                   type="email"
                   id="email"
@@ -139,18 +173,46 @@ const StudentLogin = () => {
                   required
                 />
               </div>
-              <p className="text-xs text-slate-500">
-                Use your institution email address
-              </p>
+              {errors.email && (
+                <p className="text-red-400 text-sm">{errors.institutionId}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="institutionId"
+                className="block text-sm font-medium text-slate-300"
+              >
+                Institution Id
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  name="institutionId"
+                  value={formData.institutionId}
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-5 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="INST001"
+                />
+              </div>
+              {errors.institutionId && (
+                <p className="text-red-400 text-sm">{errors.institutionId}</p>
+              )}
             </div>
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-slate-300"
+              >
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                <Lock
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  size={20}
+                />
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
@@ -169,6 +231,9 @@ const StudentLogin = () => {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-red-400 text-sm">{errors.password}</p>
+              )}
             </div>
 
             {/* Remember Me & Forgot Password */}
@@ -182,7 +247,10 @@ const StudentLogin = () => {
                   onChange={handleInputChange}
                   className="h-4 w-4 text-green-600 focus:ring-green-500 border-slate-600 bg-slate-700 rounded transition-colors duration-200"
                 />
-                <label htmlFor="rememberMe" className="ml-2 text-sm text-slate-300">
+                <label
+                  htmlFor="rememberMe"
+                  className="ml-2 text-sm text-slate-300"
+                >
                   Remember me
                 </label>
               </div>
@@ -218,9 +286,9 @@ const StudentLogin = () => {
           {/* Sign up link */}
           <div className="mt-6 pt-6 border-t border-slate-700">
             <p className="text-center text-slate-400 text-sm">
-              Don't have an account?{' '}
-              <Link 
-                to="/student/signup" 
+              Don't have an account?{" "}
+              <Link
+                to="/student/signup"
                 className="text-green-400 hover:text-green-300 font-medium transition-colors duration-200"
               >
                 Register as Student
@@ -258,15 +326,24 @@ const StudentLogin = () => {
         {/* Footer Links */}
         <div className="mt-6 text-center space-y-2">
           <div className="flex items-center justify-center space-x-4 text-xs">
-            <Link to="/student/help" className="text-slate-400 hover:text-white transition-colors duration-200">
+            <Link
+              to="/student/help"
+              className="text-slate-400 hover:text-white transition-colors duration-200"
+            >
               Student Help
             </Link>
             <span className="text-slate-600">•</span>
-            <Link to="/contact" className="text-slate-400 hover:text-white transition-colors duration-200">
+            <Link
+              to="/contact"
+              className="text-slate-400 hover:text-white transition-colors duration-200"
+            >
               Contact Support
             </Link>
             <span className="text-slate-600">•</span>
-            <Link to="/privacy" className="text-slate-400 hover:text-white transition-colors duration-200">
+            <Link
+              to="/privacy"
+              className="text-slate-400 hover:text-white transition-colors duration-200"
+            >
               Privacy Policy
             </Link>
           </div>
@@ -275,7 +352,9 @@ const StudentLogin = () => {
 
       {/* Demo credentials hint (remove in production) */}
       <div className="absolute bottom-4 right-4 bg-slate-800/90 backdrop-blur-sm p-3 rounded-lg border border-slate-700 max-w-xs">
-        <p className="text-xs text-slate-400 mb-2 font-medium">Demo Credentials:</p>
+        <p className="text-xs text-slate-400 mb-2 font-medium">
+          Demo Credentials:
+        </p>
         <div className="space-y-1 text-xs text-slate-500">
           <p>Email: student@iitdelhi.ac.in</p>
           <p>Password: student123</p>

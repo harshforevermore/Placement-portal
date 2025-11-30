@@ -1,8 +1,13 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 const institutionSchema = new mongoose.Schema(
   {
+    institutionId: {
+      type: String,
+      unique: true,
+    },
     institutionName: {
       type: String,
       required: [true, "Institution name is required"],
@@ -94,6 +99,11 @@ const institutionSchema = new mongoose.Schema(
           "Please enter a valid alternate email",
         ],
       },
+    },
+    role: {
+      type: String,
+      default: "institution",
+      immutable: true,
     },
     accreditation: {
       isAccredited: {
@@ -193,17 +203,17 @@ const institutionSchema = new mongoose.Schema(
         default: 0,
       },
     },
-    institutionEmailVerification: {
-      type: Boolean,
-      default: false
-    },
-    verificationToken: {
-      type: String,
-      select: false,
-    },
-    verificationExpires: {
-      type: Date,
-      select: false,
+    emailVerification: {
+      emailVerified: {
+        type: Boolean,
+        default: false,
+      },
+      verificationToken: {
+        type: String,
+      },
+      verificationExpires: {
+        type: Date,
+      },
     },
   },
   {
@@ -224,19 +234,32 @@ institutionSchema.virtual("isApproved").get(function () {
   return this.status === "approved";
 });
 
-// Pre-save middleware to extract domain from email
-institutionSchema.pre("save", function (next) {
+// Pre-save middleware to extract domain from email and hash password
+institutionSchema.pre("save", async function (next) {
   if (this.isModified("email")) {
     this.domain = this.email.split("@")[1];
   }
-  next();
+  if (!this.isModified("password")) return next();
+
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
+
+// Compare password method
+institutionSchema.methods.comparePassword = async function (pass) {
+  return await bcrypt.compare(pass, this.password);
+};
 
 //Generate Verification Token
 institutionSchema.methods.generateVerificationToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
-  this.verificationToken = token;
-  this.verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  this.emailVerification.verificationToken = token;
+  this.emailVerification.verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
   return token;
 };

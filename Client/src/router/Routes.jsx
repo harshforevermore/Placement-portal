@@ -4,7 +4,6 @@ import { Routes, Route } from 'react-router-dom';
 import HomePage from '../pages/HomePage';
 import NotFoundPage from '../pages/NotFoundPage';
 import FindInstitutionPage from '../pages/FindInstitutionPage';
-import EmailVerification from '../pages/EmailVerification';
 
 // Student components
 import StudentSignup from '../components/student/StudentSignUp';
@@ -27,8 +26,8 @@ import InstitutionApproval from '../components/admin/InstitutionApproval';
 import SystemSettings from '../components/admin/SystemSettings';
 
 // Auth components
-import ProtectedRoute from '../components/auth/ProtectedRoute';
-import AuthLayout from '../components/auth/AuthLayout';
+import { AdminRoute, InstitutionRoute, StudentRoute } from '../components/auth/ProtectedRoute';
+import VerifyEmail from '../components/common/VerifyEmail';
 
 const AppRoutes = () => {
   return (
@@ -36,7 +35,8 @@ const AppRoutes = () => {
       {/* Public Routes */}
       <Route path="/" element={<HomePage />} />
       <Route path="/find-institution" element={<FindInstitutionPage />} />
-      <Route path='/verify-email/:token' element={<EmailVerification />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path='/verify-email/:userType/:token' element={<VerifyEmail />} />
 
       {/* Student Routes */}
       <Route path="/student">
@@ -45,25 +45,25 @@ const AppRoutes = () => {
         <Route 
           path="dashboard" 
           element={
-            <ProtectedRoute allowedRoles={['student']}>
+            <StudentRoute>
               <StudentDashboard />
-            </ProtectedRoute>
+            </StudentRoute>
           } 
         />
         <Route 
           path="profile" 
           element={
-            <ProtectedRoute allowedRoles={['student']}>
+            <StudentRoute>
               <StudentProfile />
-            </ProtectedRoute>
+            </StudentRoute>
           } 
         />
         <Route 
           path="applications" 
           element={
-            <ProtectedRoute allowedRoles={['student']}>
+            <StudentRoute>
               <ApplicationHistory />
-            </ProtectedRoute>
+            </StudentRoute>
           } 
         />
       </Route>
@@ -75,25 +75,25 @@ const AppRoutes = () => {
         <Route 
           path="dashboard" 
           element={
-            <ProtectedRoute allowedRoles={['institution']}>
+            <InstitutionRoute>
               <InstitutionDashboard />
-            </ProtectedRoute>
+            </InstitutionRoute>
           } 
         />
         <Route 
           path="students" 
           element={
-            <ProtectedRoute allowedRoles={['institution']}>
+            <InstitutionRoute>
               <StudentManagement />
-            </ProtectedRoute>
+            </InstitutionRoute>
           } 
         />
         <Route 
           path="Management" 
           element={
-            <ProtectedRoute allowedRoles={['institution']}>
+            <InstitutionRoute>
               <PlacementManagement />
-            </ProtectedRoute>
+            </InstitutionRoute>
           } 
         />
       </Route>
@@ -104,25 +104,25 @@ const AppRoutes = () => {
         <Route 
           path="dashboard" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <AdminRoute>
               <AdminDashboard />
-            </ProtectedRoute>
+            </AdminRoute>
           } 
         />
         <Route 
           path="institutions" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <AdminRoute>
               <InstitutionApproval />
-            </ProtectedRoute>
+            </AdminRoute>
           } 
         />
         <Route 
           path="settings" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <AdminRoute>
               <SystemSettings />
-            </ProtectedRoute>
+            </AdminRoute>
           } 
         />
       </Route>

@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { GraduationCap, Mail, Lock, Eye, EyeOff, User, Phone, Calendar, BookOpen, Award, FileText, CheckCircle } from 'lucide-react';
+import axiosClient from '../../API/axiosClient';
+import { useNavigate } from 'react-router-dom';
 
-const StudentSignup = ({ onClose, onSwitchToLogin }) => {
+const StudentSignup = ({ onSwitchToLogin }) => {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Step 1: Personal Information
@@ -14,9 +17,10 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
     
     // Step 2: Academic Information
     institutionName: '',
+    institutionId: '',
     course: '',
     branch: '',
-    yearOfStudy: '',
+    year: '',
     rollNumber: '',
     cgpa: '',
     
@@ -59,7 +63,7 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
     'Other'
   ];
 
-  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Final Year'];
+  const yearOptions = [1, 2, 3, 4, 5, 6];
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -103,19 +107,22 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
         }
       }
       if (!formData.gender) newErrors.gender = 'Please select gender';
+      console.log("step 1 validated");
     }
 
     if (step === 2) {
       if (!formData.institutionName) newErrors.institutionName = 'Institution name is required';
+      if (!formData.institutionId) newErrors.institutionId = 'Institution Id is required';
       if (!formData.course) newErrors.course = 'Please select your course';
       if (!formData.branch) newErrors.branch = 'Please select your branch/specialization';
-      if (!formData.yearOfStudy) newErrors.yearOfStudy = 'Please select year of study';
+      if (!formData.year) newErrors.year = 'Please select year';
       if (!formData.rollNumber) newErrors.rollNumber = 'Roll number is required';
       if (!formData.cgpa) {
         newErrors.cgpa = 'CGPA is required';
       } else if (formData.cgpa < 0 || formData.cgpa > 10) {
         newErrors.cgpa = 'CGPA must be between 0 and 10';
       }
+      console.log("step 2 validated");
     }
 
     if (step === 3) {
@@ -136,13 +143,16 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
       if (!formData.agreedToTerms) {
         newErrors.agreedToTerms = 'You must agree to the terms and conditions';
       }
+      console.log("step 3 validated");
     }
 
+    console.log(newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = () => {
+    console.log(currentStep);
     if (validateStep(currentStep)) {
       setCurrentStep(prev => prev + 1);
     }
@@ -159,12 +169,15 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
     setIsLoading(true);
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Student registration:', formData);
-      // Handle successful registration
-      onClose();
+      console.log("Student registration data :", formData);
+      const response = await axiosClient.post("/api/auth/student/register", formData);
+      if (!response.data.success) {
+        console.log("Registration Error: ", response.data.message);
+      } else {
+        navigate("/student/login");
+      }
     } catch (error) {
-      console.error('Registration failed:', error);
+      console.error("Registration failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -311,7 +324,8 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
         <h3 className="text-lg font-semibold text-white mb-4">Academic Information</h3>
       </div>
 
-      {/* Institution Name */}
+      {/* Institution Name and id */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-2">
         <label className="block text-sm font-medium text-slate-300">
           Institution Name *
@@ -330,6 +344,26 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
         {errors.institutionName && (
           <p className="text-red-400 text-sm">{errors.institutionName}</p>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-slate-300">
+          Institution Id *
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            name="institutionId"
+            value={formData.institutionId}
+            onChange={handleInputChange}
+            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-5 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            placeholder="INST001"
+          />
+        </div>
+        {errors.institutionId && (
+          <p className="text-red-400 text-sm">{errors.institutionId}</p>
+        )}
+      </div>
       </div>
 
       {/* Course & Branch */}
@@ -379,11 +413,11 @@ const StudentSignup = ({ onClose, onSwitchToLogin }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-300">
-            Year of Study *
+            Year *
           </label>
           <select
-            name="yearOfStudy"
-            value={formData.yearOfStudy}
+            name="year"
+            value={formData.year}
             onChange={handleInputChange}
             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
           >

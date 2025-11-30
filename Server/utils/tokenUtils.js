@@ -1,5 +1,32 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import RefreshToken from '../models/refreshToken.js';
+
+export const accessTokenCookieOptions = {
+  httpOnly: true,      // Not accessible via JavaScript
+  secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+  sameSite: 'strict',  // CSRF protection
+  maxAge: 15 * 60 * 1000, // 15 minutes
+  path: '/'
+};
+
+export const refreshTokenCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/'
+};
+
+export const getDeviceInfo = (req) => {
+  const userAgent = req.headers['user-agent'] || '';
+  return {
+    userAgent,
+    ip: req.ip || req.connection.remoteAddress,
+    device: userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
+    browser: userAgent.split('/')[0]
+  };
+};
 
 // Token configuration
 const TOKEN_CONFIG = {
@@ -29,8 +56,8 @@ const TOKEN_CONFIG = {
 export const generateAccessToken = (userData, customExpiry = null) => {
   try {
     const payload = {
-      role: userData.role,
-      email: userData.email,
+      role: userData?.role,
+      email: userData?.email,
       tokenType: 'access'
     };
 
@@ -87,6 +114,32 @@ export const generateTokenPair = (userData) => {
     expiresIn: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRES[userData.role] || '8h',
     tokenType: 'Bearer'
   };
+};
+
+export const cleanupExpiredTokens = async () => {
+  try {
+    const result = await RefreshToken.deleteMany({
+      $or: [
+        { expiresAt: { $lt: new Date() } },
+        { 
+          isRevoked: true, 
+          revokedAt: { $lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        }
+      ]
+    });
+
+    console.log(`🧹 Cleaned up ${result.deletedCount} expired/old refresh tokens`);
+    return result.deletedCount;
+  } catch (error) {
+    console.error('Token cleanup error:', error);
+    throw error;
+  }
+};
+
+export const initTokenCleanup = () => {
+  cleanupExpiredTokens();
+  setInterval(cleanupExpiredTokens, 24 * 60 * 60 * 1000);
+  console.log('✅ Token cleanup scheduler initialized');
 };
 
 /**
