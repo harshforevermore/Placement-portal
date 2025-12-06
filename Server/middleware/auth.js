@@ -25,6 +25,8 @@ export const authenticate = async (req, res, next) => {
       console.log("Access token available");
       try {
         const decoded = jwt.verify(accT, process.env.JWT_SECRET);
+
+        console.log("decoded access token: ", decoded);
         
         console.log("Line 1");
         // Token is valid - attach user and continue

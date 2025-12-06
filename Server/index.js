@@ -11,7 +11,7 @@ import authRoutes from './routes/auth.js';
 import { initTokenCleanup } from './utils/tokenUtils.js';
 import adminRoutes from './routes/admin/adminRoutes.js';
 import institutionRoutes from './routes/institution/institutionRoutes.js';
-// import studentRoutes from './routes/student/studentRoutes.js';
+import studentRoutes from './routes/student/studentRoutes.js';
 
 dotenv.config();
 
@@ -57,7 +57,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/institution', institutionRoutes);
-// app.use('/api/student', studentRoutes);
+app.use('/api/student', studentRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

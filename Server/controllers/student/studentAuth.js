@@ -12,6 +12,7 @@ import RefreshToken from "../../models/refreshToken.js";
 
 // ==================== STUDENT LOGIN ====================
 export const studentLogin = async (req, res) => {
+  console.log("Student Login");
   try {
     const { email, institutionId, password } = req.body;
 

@@ -1,18 +1,5 @@
 import express from 'express';
 import { body } from 'express-validator';
-// import {
-//   adminLogin,
-//   adminRegister,
-//   institutionLogin,
-//   institutionRegister,
-//   studentLogin,
-//   studentRegister,
-//   logout,
-//   refreshToken,
-//   forgotPassword,
-//   resetPassword,
-  // verifyEmail
-// } from '../controllers/authController.js';
 import { adminRegister, adminLogin } from '../controllers/admin/adminAuth.js';
 import { /*deleteInstitution,*/ institutionLogin, institutionRegister } from '../controllers/institution/institutionAuth.js';
 import { studentLogin, studentRegister } from '../controllers/student/studentAuth.js';
